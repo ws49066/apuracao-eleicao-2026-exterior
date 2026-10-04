@@ -13,6 +13,7 @@ import { TSE } from "@/lib/tse/config";
 import type { Apuracao } from "@/lib/tse/normalize";
 
 export const revalidate = 30;
+export const maxDuration = 30;
 
 interface Props {
   searchParams: Promise<{ tipo?: string; id?: string }>;
