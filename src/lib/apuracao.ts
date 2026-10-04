@@ -1,6 +1,7 @@
 import { LOCALIDADES, localidadePorCodigo, paisPorIso, type Localidade } from "./locais";
 import { buscarResultadoExterior, buscarResultadoLocalidade } from "./tse/client";
-import { aplicarProvisorio, paisProvisorio } from "./provisorio";
+import { obterLevantamento } from "./fontes";
+import { aplicarProvisorio } from "./provisorio";
 import { agregar, normalizar, type Apuracao, type Escopo } from "./tse/normalize";
 
 export type FiltroEscopo =
@@ -31,7 +32,8 @@ async function apuracaoDaLocalidade(local: Localidade): Promise<Apuracao> {
 }
 
 export async function obterApuracao(filtro: FiltroEscopo): Promise<Apuracao> {
-  return aplicarProvisorio(await obterApuracaoOficial(filtro));
+  const [oficial, levantamento] = await Promise.all([obterApuracaoOficial(filtro), obterLevantamento()]);
+  return aplicarProvisorio(oficial, levantamento);
 }
 
 async function obterApuracaoOficial(filtro: FiltroEscopo): Promise<Apuracao> {
@@ -79,6 +81,7 @@ export interface LinhaPais {
  * cara da aplicação, por isso vive atrás de cache no route handler.
  */
 export async function obterRankingPaises(): Promise<LinhaPais[]> {
+  const levantamento = await obterLevantamento();
   const apuracoes = await emLotes(LOCALIDADES, async (local) => ({
     local,
     apuracao: await apuracaoDaLocalidade(local),
@@ -101,6 +104,7 @@ export async function obterRankingPaises(): Promise<LinhaPais[]> {
         itens.map((i) => i.apuracao),
         { tipo: "pais", id: iso, nome: pais.nome, iso },
       ),
+      levantamento,
     );
     const lider = total.candidatos[0];
 
@@ -114,7 +118,7 @@ export async function obterRankingPaises(): Promise<LinhaPais[]> {
       votosValidos: total.votos.validos,
       secoesTotalizadas: total.secoes.totalizadas,
       secoesTotal: total.secoes.total,
-      provisorio: !!total.provisorio && !!paisProvisorio(iso),
+      provisorio: !!total.provisorio,
       lider:
         lider && lider.votos > 0
           ? {

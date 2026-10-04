@@ -50,8 +50,7 @@ export interface Apuracao {
   candidatos: Candidato[];
   /** Presente quando os votos vêm de levantamento não oficial, e não do TSE. */
   provisorio?: {
-    fonte: string;
-    url: string;
+    versao: string;
     paisesCobertos: number;
     avisos: string[];
   };

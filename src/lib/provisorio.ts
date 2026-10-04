@@ -1,12 +1,8 @@
-import { FONTE_PROVISORIO, PROVISORIO, type PaisProvisorio } from "@/data/provisorio";
+import type { Levantamento, PaisLevantado } from "./fontes";
 import { PAISES, paisPorIso } from "./locais";
 import type { Apuracao, Candidato } from "./tse/normalize";
 
-const POR_ISO = new Map(PROVISORIO.map((p) => [p.iso, p]));
-
-export const paisProvisorio = (iso: string) => POR_ISO.get(iso);
-
-function somar(partes: PaisProvisorio[]) {
+function somar(partes: PaisLevantado[]) {
   const votos = new Map<string, number>();
   let naoIdentificados = 0;
   for (const p of partes) {
@@ -20,13 +16,13 @@ function somar(partes: PaisProvisorio[]) {
  * Substitui os votos zerados do TSE pelo levantamento provisório. Só age
  * enquanto o TSE ainda não apurou nada no escopo: com dado oficial, ele vence.
  */
-export function aplicarProvisorio(base: Apuracao): Apuracao {
+export function aplicarProvisorio(base: Apuracao, lev: Levantamento): Apuracao {
   if (base.votos.total > 0 || base.escopo.tipo === "cidade") return base;
 
   const partes =
     base.escopo.tipo === "pais"
-      ? [POR_ISO.get(base.escopo.id)].filter((p): p is PaisProvisorio => !!p)
-      : PROVISORIO;
+      ? lev.paises.filter((p) => p.iso === base.escopo.id)
+      : lev.paises;
   if (partes.length === 0) return base;
 
   const { votos, naoIdentificados } = somar(partes);
@@ -58,8 +54,7 @@ export function aplicarProvisorio(base: Apuracao): Apuracao {
     votos: { ...base.votos, total, nominais: total, validos: total, percNominais: 100 },
     candidatos,
     provisorio: {
-      fonte: FONTE_PROVISORIO.nome,
-      url: FONTE_PROVISORIO.url,
+      versao: lev.versao,
       paisesCobertos: partes.length,
       avisos,
     },

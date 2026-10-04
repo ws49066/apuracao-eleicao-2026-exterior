@@ -1,8 +1,11 @@
 import { BotaoAtualizar } from "@/components/BotaoAtualizar";
 import { CartaoCandidato } from "@/components/CartaoCandidato";
+import { MonitorFontes } from "@/components/MonitorFontes";
+import { SobreDadosNaoOficiais } from "@/components/SobreDadosNaoOficiais";
 import { PainelDadosGerais } from "@/components/PainelDadosGerais";
 import { SeletorEscopo } from "@/components/SeletorEscopo";
 import { TabelaPaises } from "@/components/TabelaPaises";
+import { obterLevantamento, type Levantamento } from "@/lib/fontes";
 import { obterApuracao, type FiltroEscopo } from "@/lib/apuracao";
 import { bandeira } from "@/lib/locais";
 import { inteiro, percentual } from "@/lib/format";
@@ -83,7 +86,7 @@ function Erro({ mensagem }: { mensagem: string }) {
   );
 }
 
-function AvisoProvisorio({ apuracao }: { apuracao: Apuracao }) {
+function AvisoProvisorio({ apuracao, lev }: { apuracao: Apuracao; lev: Levantamento }) {
   const p = apuracao.provisorio;
   if (!p) return null;
   return (
@@ -92,10 +95,14 @@ function AvisoProvisorio({ apuracao }: { apuracao: Apuracao }) {
       <p className="mt-1 text-tse-suave">
         O TSE ainda não divulgou a totalização. Os votos abaixo vêm de boletins de urna levantados
         pela imprensa ({p.paisesCobertos} {p.paisesCobertos === 1 ? "país" : "países"}) e serão
-        substituídos pelo resultado oficial assim que ele for publicado. Fonte:{" "}
-        <a href={p.url} className="font-semibold underline" target="_blank" rel="noreferrer">
-          {p.fonte}
-        </a>
+        substituídos pelo resultado oficial assim que ele for publicado. Fonte principal:{" "}
+        {lev.fontes
+          .filter((f) => f.papel === "principal")
+          .map((f) => (
+            <a key={f.id} href={f.url} className="font-semibold underline" target="_blank" rel="noreferrer">
+              {f.nome}
+            </a>
+          ))}
         .
       </p>
       {p.avisos.length > 0 && (
@@ -134,6 +141,7 @@ export default async function Pagina({ searchParams }: Props) {
   const { tipo, id } = await searchParams;
   const { filtro, valor } = montarFiltro(tipo, id);
 
+  const levantamento = await obterLevantamento();
   let apuracao: Apuracao | null = null;
   let mensagemErro: string | null = null;
   try {
@@ -160,7 +168,9 @@ export default async function Pagina({ searchParams }: Props) {
         ) : (
           <>
             <Resumo apuracao={apuracao} />
-            <AvisoProvisorio apuracao={apuracao} />
+            <MonitorFontes versao={levantamento.versao} resumo={levantamento.resumo} />
+            <AvisoProvisorio apuracao={apuracao} lev={levantamento} />
+            {apuracao.provisorio && <SobreDadosNaoOficiais lev={levantamento} />}
             <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
               <aside>
                 <PainelDadosGerais apuracao={apuracao} />

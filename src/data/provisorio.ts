@@ -24,6 +24,11 @@ export interface PaisProvisorio {
   ressalva?: string;
 }
 
+/** Observações editoriais por país, aplicadas qualquer que seja a fonte que forneceu os números. */
+export const OBSERVACOES_PAISES: Record<string, string> = {
+  JP: "Os veículos divergem: o g1 informa Lula com 5.222 votos, outras matérias citam 5.234 e uma delas, 'dados atualizados', 25.109 para Flávio e 5.567 para Lula. A contagem pode ainda estar em atualização.",
+};
+
 export const PROVISORIO: PaisProvisorio[] = [
   {
     iso: "AE",

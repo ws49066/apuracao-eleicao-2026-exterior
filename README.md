@@ -104,6 +104,23 @@ As respostas do TSE são cacheadas por 30 segundos (`next.revalidate`), o que ev
 durante a totalização sem atrasar visivelmente os números. O ranking por país percorre as 186
 cidades em lotes de 12 requisições e só é carregado sob demanda.
 
+## Resultado provisório (BUs não oficiais)
+
+Enquanto o TSE não totaliza o exterior, o painel usa os **boletins de urna divulgados pela imprensa**,
+sempre sinalizados como não oficiais. O código está em `src/lib/fontes/`:
+
+- `config.ts` — lista de fontes. A `principal` (g1) é lida e entra nos números; as de `conferencia`
+  só confirmam se os totais do líder e do 2º colocado batem.
+- `leitor.ts` — transforma a matéria em votos por país (tolera erros de digitação da fonte) e
+  compara o líder com o percentual que a própria matéria informa para sinalizar números que não fecham.
+- `index.ts` — coleta tudo em paralelo (cache de 60s/300s), mescla com o snapshot em
+  `src/data/provisorio.ts` e gera uma `versao` (hash). Se uma coleta falhar, vale o snapshot.
+- `/api/monitor` — devolve a `versao` e o status das fontes; o componente `MonitorFontes` consulta a cada
+  60s e, se a versão mudar, atualiza a tela e avisa o que mudou.
+
+Dado oficial do TSE sempre prevalece: com votos apurados no escopo, o provisório deixa de ser usado.
+Para incluir outra fonte, basta adicioná-la em `config.ts`.
+
 ---
 
 Projeto independente, sem vínculo com o Tribunal Superior Eleitoral.
