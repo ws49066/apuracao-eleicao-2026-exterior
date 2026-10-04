@@ -48,6 +48,13 @@ export interface Apuracao {
     percNulos: number;
   };
   candidatos: Candidato[];
+  /** Presente quando os votos vêm de levantamento não oficial, e não do TSE. */
+  provisorio?: {
+    fonte: string;
+    url: string;
+    paisesCobertos: number;
+    avisos: string[];
+  };
 }
 
 /** Os números do TSE vêm em pt-BR: "1.234" é inteiro e "12,34" é decimal. */

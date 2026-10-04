@@ -67,6 +67,17 @@ export function PainelDadosGerais({ apuracao }: { apuracao: Apuracao }) {
         </div>
       </Cartao>
 
+      {apuracao.provisorio ? (
+        <Cartao titulo="Votação (provisório)">
+          <p className="tabular pb-1 text-sm font-bold">
+            {inteiro(votos.total)}{" "}
+            <span className="font-normal text-tse-suave">votos nos boletins levantados</span>
+          </p>
+          <p className="text-xs text-tse-suave">
+            Brancos, nulos e anulados não constam no levantamento.
+          </p>
+        </Cartao>
+      ) : (
       <Cartao titulo="Votação">
         <div className="pb-3">
           <Barra valor={votos.percNominais} cor="#4e7d1f" />
@@ -86,6 +97,7 @@ export function PainelDadosGerais({ apuracao }: { apuracao: Apuracao }) {
         <Linha rotulo="Em branco" valor={inteiro(votos.brancos)} cor="#4a7fb5" />
         <Linha rotulo="Nulos" valor={inteiro(votos.nulos)} cor="#c9a7d8" />
       </Cartao>
+      )}
 
       <Cartao titulo="Eleitorado">
         <Linha rotulo="Eleitorado apto" valor={inteiro(eleitorado.apto)} />

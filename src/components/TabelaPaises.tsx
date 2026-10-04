@@ -119,6 +119,11 @@ export function TabelaPaises() {
                         <span className="tabular ml-2 text-tse-suave">
                           {percentual(l.lider.percentual)}
                         </span>
+                        {l.provisorio && (
+                          <span className="ml-2 rounded bg-tse-amarelo/30 px-1.5 py-0.5 text-[10px] font-bold uppercase text-tse-amarelo-escuro">
+                            provisório
+                          </span>
+                        )}
                       </span>
                     ) : (
                       <span className="text-tse-suave">Sem votos apurados</span>

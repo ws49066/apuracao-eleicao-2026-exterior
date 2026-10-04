@@ -1,5 +1,6 @@
 import { LOCALIDADES, localidadePorCodigo, paisPorIso, type Localidade } from "./locais";
 import { buscarResultadoExterior, buscarResultadoLocalidade } from "./tse/client";
+import { aplicarProvisorio, paisProvisorio } from "./provisorio";
 import { agregar, normalizar, type Apuracao, type Escopo } from "./tse/normalize";
 
 export type FiltroEscopo =
@@ -30,6 +31,10 @@ async function apuracaoDaLocalidade(local: Localidade): Promise<Apuracao> {
 }
 
 export async function obterApuracao(filtro: FiltroEscopo): Promise<Apuracao> {
+  return aplicarProvisorio(await obterApuracaoOficial(filtro));
+}
+
+async function obterApuracaoOficial(filtro: FiltroEscopo): Promise<Apuracao> {
   if (filtro.tipo === "exterior") {
     const escopo: Escopo = { tipo: "exterior", id: "zz", nome: "Exterior", iso: null };
     return normalizar(await buscarResultadoExterior(), escopo);
@@ -66,6 +71,7 @@ export interface LinhaPais {
   secoesTotalizadas: number;
   secoesTotal: number;
   lider: { nomeUrna: string; partido: string; votos: number; percentual: number } | null;
+  provisorio: boolean;
 }
 
 /**
@@ -90,9 +96,11 @@ export async function obterRankingPaises(): Promise<LinhaPais[]> {
     const pais = paisPorIso(iso);
     if (!pais) continue;
 
-    const total = agregar(
-      itens.map((i) => i.apuracao),
-      { tipo: "pais", id: iso, nome: pais.nome, iso },
+    const total = aplicarProvisorio(
+      agregar(
+        itens.map((i) => i.apuracao),
+        { tipo: "pais", id: iso, nome: pais.nome, iso },
+      ),
     );
     const lider = total.candidatos[0];
 
@@ -106,6 +114,7 @@ export async function obterRankingPaises(): Promise<LinhaPais[]> {
       votosValidos: total.votos.validos,
       secoesTotalizadas: total.secoes.totalizadas,
       secoesTotal: total.secoes.total,
+      provisorio: !!total.provisorio && !!paisProvisorio(iso),
       lider:
         lider && lider.votos > 0
           ? {

@@ -83,6 +83,32 @@ function Erro({ mensagem }: { mensagem: string }) {
   );
 }
 
+function AvisoProvisorio({ apuracao }: { apuracao: Apuracao }) {
+  const p = apuracao.provisorio;
+  if (!p) return null;
+  return (
+    <div className="mb-4 rounded-lg border-2 border-tse-amarelo bg-tse-amarelo/15 px-4 py-3 text-sm">
+      <p className="font-bold">Resultado provisório — não oficial</p>
+      <p className="mt-1 text-tse-suave">
+        O TSE ainda não divulgou a totalização. Os votos abaixo vêm de boletins de urna levantados
+        pela imprensa ({p.paisesCobertos} {p.paisesCobertos === 1 ? "país" : "países"}) e serão
+        substituídos pelo resultado oficial assim que ele for publicado. Fonte:{" "}
+        <a href={p.url} className="font-semibold underline" target="_blank" rel="noreferrer">
+          {p.fonte}
+        </a>
+        .
+      </p>
+      {p.avisos.length > 0 && (
+        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-tse-suave">
+          {p.avisos.map((a) => (
+            <li key={a}>{a}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function Resumo({ apuracao }: { apuracao: Apuracao }) {
   const { escopo, secoes, eleitorado } = apuracao;
   return (
@@ -134,6 +160,7 @@ export default async function Pagina({ searchParams }: Props) {
         ) : (
           <>
             <Resumo apuracao={apuracao} />
+            <AvisoProvisorio apuracao={apuracao} />
             <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
               <aside>
                 <PainelDadosGerais apuracao={apuracao} />
