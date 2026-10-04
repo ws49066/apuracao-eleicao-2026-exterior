@@ -9,22 +9,14 @@ export function SobreDadosNaoOficiais({ lev }: { lev: Levantamento }) {
   return (
     <details className="mb-4 rounded-lg border border-tse-borda bg-white p-4 text-sm shadow-sm">
       <summary className="cursor-pointer font-bold">
-        Sobre estes números: boletins de urna (BU) não oficiais coletados de matérias
+        BUs não oficiais coletados de matérias
       </summary>
 
       <div className="mt-3 space-y-3 text-tse-suave">
         <p>
-          O <strong className="text-tse-texto">boletim de urna (BU)</strong> é o resumo impresso
-          por cada urna ao fim da votação. O resultado oficial é a soma de todos os BUs, mas o TSE
-          só divulga a totalização depois do horário definido. Enquanto isso, veículos de imprensa
-          leem BUs afixados nos locais de votação e publicam os totais por país.
-        </p>
-        <p>
-          Este painel <strong className="text-tse-texto">coleta automaticamente</strong> essas
-          matérias e as usa como resultado <strong className="text-tse-texto">provisório e não
-          oficial</strong>. Os números podem conter erros de digitação da fonte, cobrir só parte
-          das seções e divergir entre veículos. Cada país é substituído pelo dado do TSE assim
-          que houver votos apurados.
+          Resultado <strong className="text-tse-texto">provisório e não oficial</strong>, coletado de
+          matérias que leram BUs. Pode ter erros ou divergir entre veículos; cada país passa ao dado do
+          TSE quando houver votos apurados.
         </p>
 
         <div>
