@@ -94,32 +94,46 @@ export async function obterLevantamento(): Promise<Levantamento> {
     }
   });
 
-  const porIso = new Map<string, { dado: PaisProvisorio; origem: PaisLevantado["origem"] }>();
-  for (const p of PROVISORIO) porIso.set(p.iso, { dado: p, origem: "snapshot" });
-  for (const p of lidos) {
-    const atual = porIso.get(p.iso);
-    if (!atual || totalVotos(p) >= totalVotos(atual.dado)) porIso.set(p.iso, { dado: p, origem: "coleta" });
-  }
+  const fechaComRef = (d: PaisProvisorio) =>
+    d.lideRefPct === undefined ||
+    Math.abs((Math.max(...Object.values(d.votos)) / totalVotos(d)) * 100 - d.lideRefPct) <= 0.3;
+  const confirmacoes = (d: PaisProvisorio) =>
+    textosConferencia.filter((t) => confirma(t.texto, d)).map((t) => t.nome);
 
-  const paises: PaisLevantado[] = [...porIso.values()].map(({ dado, origem }) => {
-    const total = totalVotos(dado);
-    const lider = Math.max(...Object.values(dado.votos));
-    const divergente = dado.lideRefPct !== undefined && Math.abs((lider / total) * 100 - dado.lideRefPct) > 0.3;
+  const snapshots = new Map(PROVISORIO.map((p) => [p.iso, p]));
+  const lidosPorIso = new Map(lidos.map((p) => [p.iso, p]));
+
+  const paises: PaisLevantado[] = [...new Set([...snapshots.keys(), ...lidosPorIso.keys()])].map((iso) => {
+    const lido = lidosPorIso.get(iso);
+    const salvo = snapshots.get(iso);
+    let dado = lido ?? salvo!;
+    let origem: PaisLevantado["origem"] = lido ? "coleta" : "snapshot";
+    let confirmadoPor = confirmacoes(dado);
+    let aviso: string | undefined;
+
+    if (lido && salvo && !fechaComRef(lido) && fechaComRef(salvo)) {
+      const confirmadoSalvo = confirmacoes(salvo);
+      if (confirmadoSalvo.length > confirmadoPor.length) {
+        dado = salvo;
+        origem = "snapshot";
+        confirmadoPor = confirmadoSalvo;
+        aviso =
+          "A matéria atual traz números inconsistentes para este país; mantidos os anteriores, que fecham com o percentual publicado e são confirmados por outras fontes.";
+      }
+    }
+
     const ressalva =
       [
-        divergente &&
+        !fechaComRef(dado) &&
           "A soma dos votos listados não fecha com os percentuais publicados pela própria fonte; os valores podem estar incompletos.",
-        OBSERVACOES_PAISES[dado.iso],
+        aviso,
+        OBSERVACOES_PAISES[iso],
         dado.ressalva,
       ]
         .filter(Boolean)
         .join(" ") || undefined;
-    return {
-      ...dado,
-      ressalva,
-      origem,
-      confirmadoPor: textosConferencia.filter((t) => confirma(t.texto, dado)).map((t) => t.nome),
-    };
+
+    return { ...dado, ressalva, origem, confirmadoPor };
   });
   paises.sort((a, b) => (paisPorIso(a.iso)?.nome ?? "").localeCompare(paisPorIso(b.iso)?.nome ?? "", "pt-BR"));
 
