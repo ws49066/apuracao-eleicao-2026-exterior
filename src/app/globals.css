@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-tse-amarelo: #f2c200;
+  --color-tse-amarelo-claro: #fde68a;
+  --color-tse-amarelo-escuro: #a97f00;
+  --color-tse-verde: #4e7d1f;
+  --color-tse-verde-claro: #7cb342;
+  --color-tse-vermelho: #e4572e;
+  --color-tse-azul: #4a7fb5;
+  --color-tse-roxo: #c9a7d8;
+  --color-tse-fundo: #f1f1f1;
+  --color-tse-borda: #e3e3e3;
+  --color-tse-texto: #2f2f2f;
+  --color-tse-suave: #6b6b6b;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-tse-fundo);
+  color: var(--color-tse-texto);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Números de apuração não devem "dançar" a cada atualização. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
