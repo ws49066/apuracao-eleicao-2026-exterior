@@ -6,7 +6,7 @@ export interface FonteConfig {
   papel: "principal" | "conferencia";
   turno: "1" | "2";
   /** Como a matéria organiza os números. Sem formato, a fonte só confere os números das outras. */
-  formato?: "g1" | "lista" | "prosa";
+  formato?: "g1" | "secoes" | "lista" | "prosa";
 }
 
 export const FONTES: FonteConfig[] = [
@@ -87,6 +87,14 @@ export const FONTES: FonteConfig[] = [
     papel: "conferencia",
     turno: "1",
     url: "https://noticias.uol.com.br/eleicoes/2026/10/04/apuracao-dos-votos-para-presidente-no-exterior-veja-parcial-dos-votos-pelo-mundo.ghtml",
+  },
+  {
+    id: "g1-t2",
+    nome: "g1",
+    papel: "principal",
+    turno: "2",
+    formato: "secoes",
+    url: "https://g1.globo.com/mundo/noticia/2026/10/25/votacao-no-exterior-confira-os-resultados-do-2o-turno-entre-lula-e-flavio-bolsonaro.ghtml",
   },
   {
     id: "cnn-t2",

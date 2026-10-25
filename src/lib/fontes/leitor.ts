@@ -202,3 +202,27 @@ export function lerProsaDuelo(html: string): PaisProvisorio[] {
   });
   return [...resultado.values()];
 }
+
+const REGEX_SECOES =
+  /([a-z][a-z' .-]*?)\s+2\S?\s*turno\s*:\s*(lula|flavio)(?:\s+bolsonaro)?\s*,\s*([\d.]+)\s+votos?\s*(?:\([\d,]+%\))?\s*2\S?\s*turno\s*:\s*(lula|flavio)(?:\s+bolsonaro)?\s*,\s*([\d.]+)\s+votos?/g;
+
+/**
+ * Lê blocos "País / 2º turno: Lula, N votos (x%) / 2º turno: Flávio, M votos (y%) / 1º turno: ...".
+ * Países sem dados dizem "ainda não há dados" e não casam com o padrão.
+ */
+export function lerSecoesDuelo(html: string): PaisProvisorio[] {
+  const texto = semAcento(htmlParaTexto(html));
+  const resultado = new Map<string, PaisProvisorio>();
+  for (const m of texto.matchAll(REGEX_SECOES)) {
+    const iso = resolverPais(m[1]);
+    if (!iso || m[2] === m[4] || resultado.has(iso)) continue;
+    const nome = (c: string) => (c === "lula" ? "LULA" : "FLAVIO BOLSONARO");
+    const votos = {
+      [nome(m[2])]: Number(m[3].replace(/\./g, "")),
+      [nome(m[4])]: Number(m[5].replace(/\./g, "")),
+    };
+    if (Object.values(votos).reduce((a, b) => a + b, 0) === 0) continue;
+    resultado.set(iso, { iso, votos });
+  }
+  return [...resultado.values()];
+}

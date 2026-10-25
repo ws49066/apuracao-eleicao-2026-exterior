@@ -3,7 +3,15 @@ import { OBSERVACOES_PAISES, PROVISORIO, type PaisProvisorio } from "@/data/prov
 import { PAISES, paisPorIso } from "../locais";
 import { FONTES, type FonteConfig } from "./config";
 import type { Turno } from "../tse/config";
-import { htmlParaTexto, lerListaDuelo, lerMateriaPorPais, lerProsaDuelo, semAcento, totalVotos } from "./leitor";
+import {
+  htmlParaTexto,
+  lerListaDuelo,
+  lerMateriaPorPais,
+  lerProsaDuelo,
+  lerSecoesDuelo,
+  semAcento,
+  totalVotos,
+} from "./leitor";
 
 export interface PaisLevantado extends PaisProvisorio {
   origem: "coleta" | "snapshot";
@@ -110,7 +118,9 @@ export async function obterLevantamento(turno: Turno): Promise<Levantamento> {
       return;
     }
     const lidos =
-      fonte.formato === "lista"
+      fonte.formato === "secoes"
+        ? lerSecoesDuelo(r.value)
+        : fonte.formato === "lista"
         ? lerListaDuelo(r.value)
         : fonte.formato === "prosa"
           ? lerProsaDuelo(r.value)
