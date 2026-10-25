@@ -12,6 +12,8 @@ export interface Candidato {
   votos: number;
   percentual: number;
   eleito: boolean;
+  /** Texto do TSE: "Eleito", "2º turno" ou "Não eleito". */
+  situacao: string;
   foto: string;
 }
 
@@ -87,6 +89,7 @@ export function normalizar(bruto: TseResultadoBruto, escopo: Escopo): Apuracao {
           votos,
           percentual: pct(votos, votosValidos),
           eleito: c.e === "s",
+          situacao: c.st,
           foto: urlFoto(c.sqcand),
         });
       }

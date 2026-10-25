@@ -52,7 +52,7 @@ export function CartaoCandidato({
           <p className="tabular text-sm text-tse-suave">{inteiro(candidato.votos)} votos</p>
           {candidato.eleito && (
             <span className="mt-1 inline-block rounded bg-tse-verde px-2 py-0.5 text-[11px] font-bold uppercase text-white">
-              Eleito
+              {candidato.situacao || "Eleito"}
             </span>
           )}
         </div>

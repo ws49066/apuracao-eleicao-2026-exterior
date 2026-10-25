@@ -29,7 +29,7 @@ function estilo(p: PaisMapa | undefined): { fill: string; opacity: number } {
 
 const INTERVALO_MS = 60_000;
 
-export function MapaMundi({ totalPaises }: { totalPaises: number }) {
+export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: string }) {
   const router = useRouter();
   const [dados, setDados] = useState<DadosMapa | null>(null);
   const [erro, setErro] = useState(false);
@@ -39,7 +39,7 @@ export function MapaMundi({ totalPaises }: { totalPaises: number }) {
     let cancelado = false;
     async function carregar() {
       try {
-        const r = await fetch("/api/mapa", { cache: "no-store" });
+        const r = await fetch(`/api/mapa?turno=${turno}`, { cache: "no-store" });
         if (!r.ok) throw new Error();
         const d = (await r.json()) as DadosMapa;
         if (!cancelado) {
@@ -56,7 +56,7 @@ export function MapaMundi({ totalPaises }: { totalPaises: number }) {
       cancelado = true;
       clearInterval(id);
     };
-  }, []);
+  }, [turno]);
 
   const porIso = useMemo(() => new Map((dados?.paises ?? []).map((p) => [p.iso, p])), [dados]);
 
@@ -174,7 +174,7 @@ export function MapaMundi({ totalPaises }: { totalPaises: number }) {
             </p>
             <button
               type="button"
-              onClick={() => router.push(`/?tipo=pais&id=${selecionado.iso}`, { scroll: true })}
+              onClick={() => router.push(`/?turno=${turno}&tipo=pais&id=${selecionado.iso}`, { scroll: true })}
               className="mt-2 w-full rounded bg-tse-amarelo px-2 py-1 text-xs font-bold hover:brightness-95"
             >
               Ver este país
@@ -197,7 +197,10 @@ export function MapaMundi({ totalPaises }: { totalPaises: number }) {
         <Legenda cor={COR_FLAVIO} texto="Flávio Bolsonaro" />
         <Legenda cor={COR_EMPATE} texto="Empate" />
         <Legenda cor={COR_VAZIO} texto="Sem votos apurados" />
-        <span>Cor mais forte = vitória mais folgada. Passe o mouse ou toque no país.</span>
+        <span>
+          Cor mais forte = vitória mais folgada. Passe o mouse ou toque no país.
+          {turno === "1" && " Compara só Lula e Flávio; o 1º turno teve 12 candidatos."}
+        </span>
       </div>
     </section>
   );

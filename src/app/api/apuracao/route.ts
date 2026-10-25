@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { obterApuracao, type FiltroEscopo } from "@/lib/apuracao";
+import { turnoValido } from "@/lib/tse/config";
 
 export const revalidate = 30;
 
@@ -13,7 +14,10 @@ function lerFiltro(params: URLSearchParams): FiltroEscopo {
 
 export async function GET(request: NextRequest) {
   try {
-    const apuracao = await obterApuracao(lerFiltro(request.nextUrl.searchParams));
+    const apuracao = await obterApuracao(
+      lerFiltro(request.nextUrl.searchParams),
+      turnoValido(request.nextUrl.searchParams.get("turno")),
+    );
     return NextResponse.json(apuracao, {
       headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" },
     });

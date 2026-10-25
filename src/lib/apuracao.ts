@@ -1,4 +1,5 @@
 import { LOCALIDADES, localidadePorCodigo, paisPorIso, type Localidade } from "./locais";
+import type { Turno } from "./tse/config";
 import { buscarResultadoExterior, buscarResultadoLocalidade } from "./tse/client";
 import { obterLevantamento, type Levantamento } from "./fontes";
 import { aplicarProvisorio } from "./provisorio";
@@ -21,8 +22,8 @@ async function emLotes<T, R>(itens: T[], tarefa: (item: T) => Promise<R>): Promi
   return resultados;
 }
 
-async function apuracaoDaLocalidade(local: Localidade): Promise<Apuracao> {
-  const bruto = await buscarResultadoLocalidade(local.codigo);
+async function apuracaoDaLocalidade(local: Localidade, turno: Turno): Promise<Apuracao> {
+  const bruto = await buscarResultadoLocalidade(turno, local.codigo);
   return normalizar(bruto, {
     tipo: "cidade",
     id: local.codigo,
@@ -31,27 +32,36 @@ async function apuracaoDaLocalidade(local: Localidade): Promise<Apuracao> {
   });
 }
 
-export async function obterApuracao(filtro: FiltroEscopo): Promise<Apuracao> {
-  const [oficial, levantamento] = await Promise.all([obterApuracaoOficial(filtro), obterLevantamento()]);
+/** O levantamento da imprensa só serve enquanto o TSE não tem votos no exterior. */
+export async function levantamentoSePreciso(turno: Turno): Promise<Levantamento | null> {
+  const exterior = await buscarResultadoExterior(turno);
+  return Number(exterior.v.tv.replace(/\./g, "")) > 0 ? null : obterLevantamento(turno);
+}
+
+export async function obterApuracao(filtro: FiltroEscopo, turno: Turno): Promise<Apuracao> {
+  const [oficial, levantamento] = await Promise.all([
+    obterApuracaoOficial(filtro, turno),
+    levantamentoSePreciso(turno),
+  ]);
   return aplicarProvisorio(oficial, levantamento);
 }
 
-async function obterApuracaoOficial(filtro: FiltroEscopo): Promise<Apuracao> {
+async function obterApuracaoOficial(filtro: FiltroEscopo, turno: Turno): Promise<Apuracao> {
   if (filtro.tipo === "exterior") {
     const escopo: Escopo = { tipo: "exterior", id: "zz", nome: "Exterior", iso: null };
-    return normalizar(await buscarResultadoExterior(), escopo);
+    return normalizar(await buscarResultadoExterior(turno), escopo);
   }
 
   if (filtro.tipo === "cidade") {
     const local = localidadePorCodigo(filtro.codigo);
     if (!local) throw new Error(`Localidade ${filtro.codigo} não encontrada`);
-    return apuracaoDaLocalidade(local);
+    return apuracaoDaLocalidade(local, turno);
   }
 
   const pais = paisPorIso(filtro.iso);
   if (!pais) throw new Error(`País ${filtro.iso} não encontrado`);
 
-  const partes = await emLotes(pais.localidades, apuracaoDaLocalidade);
+  const partes = await emLotes(pais.localidades, (local) => apuracaoDaLocalidade(local, turno));
   if (partes.length === 0) throw new Error(`Sem dados do TSE para ${pais.nome}`);
 
   return agregar(partes, {
@@ -80,10 +90,10 @@ export interface LinhaPais {
  * Consolida as 186 cidades do exterior em um ranking por país. É a chamada mais
  * cara da aplicação, por isso vive atrás de cache no route handler.
  */
-async function consolidarPaises(levantamento: Levantamento) {
+async function consolidarPaises(levantamento: Levantamento | null, turno: Turno) {
   const apuracoes = await emLotes(LOCALIDADES, async (local) => ({
     local,
-    apuracao: await apuracaoDaLocalidade(local),
+    apuracao: await apuracaoDaLocalidade(local, turno),
   }));
 
   const porPais = new Map<string, { local: Localidade; apuracao: Apuracao }[]>();
@@ -109,9 +119,9 @@ async function consolidarPaises(levantamento: Levantamento) {
   return consolidados;
 }
 
-export async function obterRankingPaises(): Promise<LinhaPais[]> {
+export async function obterRankingPaises(turno: Turno): Promise<LinhaPais[]> {
   const linhas: LinhaPais[] = [];
-  for (const { iso, cidades, total } of await consolidarPaises(await obterLevantamento())) {
+  for (const { iso, cidades, total } of await consolidarPaises(await levantamentoSePreciso(turno), turno)) {
     const pais = paisPorIso(iso)!;
     const lider = total.candidatos[0];
 
@@ -161,11 +171,10 @@ const NOME_FLAVIO = "FLAVIO BOLSONARO";
  * Votos de Lula e Flávio por país. Enquanto o TSE não apurou nada no exterior, sai direto do
  * levantamento da imprensa (barato); depois passa a consolidar as 186 cidades do TSE.
  */
-export async function obterDadosMapa(): Promise<DadosMapa> {
-  const levantamento = await obterLevantamento();
-  const oficial = await obterApuracaoOficial({ tipo: "exterior" });
+export async function obterDadosMapa(turno: Turno): Promise<DadosMapa> {
+  const levantamento = await levantamentoSePreciso(turno);
 
-  if (oficial.votos.total === 0) {
+  if (levantamento) {
     return {
       fonte: "provisorio",
       paises: levantamento.paises.map((p) => ({
@@ -178,7 +187,7 @@ export async function obterDadosMapa(): Promise<DadosMapa> {
     };
   }
 
-  const consolidados = await consolidarPaises(levantamento);
+  const consolidados = await consolidarPaises(null, turno);
   return {
     fonte: "oficial",
     paises: consolidados.map(({ iso, total }) => ({

@@ -16,7 +16,7 @@ interface RespostaMonitor {
 
 const INTERVALO_MS = 60_000;
 
-export function MonitorFontes({ versao, resumo }: { versao: string; resumo: Resumo }) {
+export function MonitorFontes({ versao, resumo, turno }: { versao: string; resumo: Resumo; turno: string }) {
   const router = useRouter();
   const atual = useRef({ versao, resumo });
   const [novidade, setNovidade] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export function MonitorFontes({ versao, resumo }: { versao: string; resumo: Resu
     let cancelado = false;
     async function verificar() {
       try {
-        const r = await fetch("/api/monitor", { cache: "no-store" });
+        const r = await fetch(`/api/monitor?turno=${turno}`, { cache: "no-store" });
         if (!r.ok || cancelado) return;
         const d = (await r.json()) as RespostaMonitor;
         setVerificadoEm(new Date());
@@ -60,7 +60,7 @@ export function MonitorFontes({ versao, resumo }: { versao: string; resumo: Resu
       cancelado = true;
       clearInterval(id);
     };
-  }, [router]);
+  }, [router, turno]);
 
   useEffect(() => {
     if (!novidade) return;

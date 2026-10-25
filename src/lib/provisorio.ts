@@ -27,8 +27,8 @@ function somar(partes: PaisLevantado[]) {
  * Substitui os votos zerados do TSE pelo levantamento provisório. Só age
  * enquanto o TSE ainda não apurou nada no escopo: com dado oficial, ele vence.
  */
-export function aplicarProvisorio(base: Apuracao, lev: Levantamento): Apuracao {
-  if (base.votos.total > 0 || base.escopo.tipo === "cidade") return base;
+export function aplicarProvisorio(base: Apuracao, lev: Levantamento | null): Apuracao {
+  if (!lev || base.votos.total > 0 || base.escopo.tipo === "cidade") return base;
 
   const partes =
     base.escopo.tipo === "pais"

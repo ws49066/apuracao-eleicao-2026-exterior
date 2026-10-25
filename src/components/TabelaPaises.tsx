@@ -17,7 +17,7 @@ const CONTINENTES = [
   "Oceania",
 ];
 
-export function TabelaPaises() {
+export function TabelaPaises({ turno }: { turno: string }) {
   const router = useRouter();
   const [linhas, setLinhas] = useState<LinhaPais[] | null>(null);
   const [carregando, setCarregando] = useState(false);
@@ -28,7 +28,7 @@ export function TabelaPaises() {
     setCarregando(true);
     setErro(null);
     try {
-      const resposta = await fetch("/api/paises");
+      const resposta = await fetch(`/api/paises?turno=${turno}`);
       if (!resposta.ok) throw new Error("O TSE não respondeu a tempo. Tente novamente.");
       setLinhas((await resposta.json()) as LinhaPais[]);
     } catch (e) {
@@ -95,7 +95,7 @@ export function TabelaPaises() {
               {visiveis.map((l) => (
                 <tr
                   key={l.iso}
-                  onClick={() => router.push(`/?tipo=pais&id=${l.iso}`, { scroll: false })}
+                  onClick={() => router.push(`/?turno=${turno}&tipo=pais&id=${l.iso}`, { scroll: false })}
                   className="cursor-pointer border-t border-tse-borda transition hover:bg-tse-amarelo/10"
                 >
                   <td className="px-3 py-2">

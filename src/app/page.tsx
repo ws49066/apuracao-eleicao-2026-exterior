@@ -6,18 +6,19 @@ import { SobreDadosNaoOficiais } from "@/components/SobreDadosNaoOficiais";
 import { PainelDadosGerais } from "@/components/PainelDadosGerais";
 import { SeletorEscopo } from "@/components/SeletorEscopo";
 import { TabelaPaises } from "@/components/TabelaPaises";
-import { obterLevantamento, type Levantamento } from "@/lib/fontes";
-import { obterApuracao, type FiltroEscopo } from "@/lib/apuracao";
+import { type Levantamento } from "@/lib/fontes";
+import { levantamentoSePreciso, obterApuracao, type FiltroEscopo } from "@/lib/apuracao";
+import { SeletorTurno } from "@/components/SeletorTurno";
 import { bandeira, PAISES } from "@/lib/locais";
 import { inteiro, percentual } from "@/lib/format";
-import { TSE } from "@/lib/tse/config";
+import { turnoValido } from "@/lib/tse/config";
 import type { Apuracao } from "@/lib/tse/normalize";
 
 export const revalidate = 30;
 export const maxDuration = 30;
 
 interface Props {
-  searchParams: Promise<{ tipo?: string; id?: string }>;
+  searchParams: Promise<{ tipo?: string; id?: string; turno?: string }>;
 }
 
 function montarFiltro(tipo?: string, id?: string): { filtro: FiltroEscopo; valor: string } {
@@ -27,7 +28,17 @@ function montarFiltro(tipo?: string, id?: string): { filtro: FiltroEscopo; valor
   return { filtro: { tipo: "exterior" }, valor: "exterior" };
 }
 
-function Cabecalho({ valorSelecionado }: { valorSelecionado: string }) {
+function Cabecalho({
+  valorSelecionado,
+  turno,
+  tipo,
+  id,
+}: {
+  valorSelecionado: string;
+  turno: string;
+  tipo?: string;
+  id?: string;
+}) {
   return (
     <header className="border-b border-tse-borda bg-white">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -43,13 +54,8 @@ function Cabecalho({ valorSelecionado }: { valorSelecionado: string }) {
       </div>
       <div className="border-t border-tse-borda bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-3">
-          <SeletorEscopo valorAtual={valorSelecionado} />
-          <div className="text-center">
-            <p className="text-xs font-semibold text-tse-suave">Turno</p>
-            <p className="mt-0.5 rounded bg-tse-amarelo px-3 py-1 text-sm font-bold">
-              {TSE.turno}º
-            </p>
-          </div>
+          <SeletorEscopo valorAtual={valorSelecionado} turno={turno} />
+          <SeletorTurno atual={turno} tipo={tipo} id={id} />
         </div>
       </div>
     </header>
@@ -143,21 +149,22 @@ function Resumo({ apuracao }: { apuracao: Apuracao }) {
 }
 
 export default async function Pagina({ searchParams }: Props) {
-  const { tipo, id } = await searchParams;
+  const { tipo, id, turno: turnoParam } = await searchParams;
+  const turno = turnoValido(turnoParam);
   const { filtro, valor } = montarFiltro(tipo, id);
 
-  const levantamento = await obterLevantamento();
   let apuracao: Apuracao | null = null;
+  let levantamento: Levantamento | null = null;
   let mensagemErro: string | null = null;
   try {
-    apuracao = await obterApuracao(filtro);
+    [apuracao, levantamento] = await Promise.all([obterApuracao(filtro, turno), levantamentoSePreciso(turno)]);
   } catch (erro) {
     mensagemErro = erro instanceof Error ? erro.message : "Erro desconhecido.";
   }
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Cabecalho valorSelecionado={valor} />
+      <Cabecalho valorSelecionado={valor} turno={turno} tipo={tipo} id={id} />
 
       <div className="bg-tse-fundo">
         <div className="mx-auto max-w-7xl px-4 pt-4">
@@ -173,10 +180,14 @@ export default async function Pagina({ searchParams }: Props) {
         ) : (
           <>
             <Resumo apuracao={apuracao} />
-            <MonitorFontes versao={levantamento.versao} resumo={levantamento.resumo} />
-            <AvisoProvisorio apuracao={apuracao} lev={levantamento} />
-            <MapaMundi totalPaises={PAISES.length} />
-            {apuracao.provisorio && <SobreDadosNaoOficiais lev={levantamento} />}
+            {levantamento && (
+              <>
+                <MonitorFontes versao={levantamento.versao} resumo={levantamento.resumo} turno={turno} />
+                <AvisoProvisorio apuracao={apuracao} lev={levantamento} />
+              </>
+            )}
+            <MapaMundi key={turno} totalPaises={PAISES.length} turno={turno} />
+            {levantamento && <SobreDadosNaoOficiais lev={levantamento} />}
             <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
               <aside>
                 <PainelDadosGerais apuracao={apuracao} />
@@ -191,7 +202,7 @@ export default async function Pagina({ searchParams }: Props) {
                     />
                   ))}
                 </div>
-                <TabelaPaises />
+                <TabelaPaises key={turno} turno={turno} />
               </div>
             </div>
           </>

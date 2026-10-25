@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { OBSERVACOES_PAISES, PROVISORIO, type PaisProvisorio } from "@/data/provisorio";
 import { PAISES, paisPorIso } from "../locais";
 import { FONTES, type FonteConfig } from "./config";
-import { TSE } from "../tse/config";
+import type { Turno } from "../tse/config";
 import { htmlParaTexto, lerListaDuelo, lerMateriaPorPais, lerProsaDuelo, semAcento, totalVotos } from "./leitor";
 
 export interface PaisLevantado extends PaisProvisorio {
@@ -89,8 +89,8 @@ function resumoLeitura(l: Leitura): string {
   return `${l.fonte}: ${rotulo(a[0])} ${a[1].toLocaleString("pt-BR")}${b ? ` × ${rotulo(b[0])} ${b[1].toLocaleString("pt-BR")}` : ""}`;
 }
 
-export async function obterLevantamento(): Promise<Levantamento> {
-  const fontesDoTurno = FONTES.filter((f) => f.turno === TSE.turno);
+export async function obterLevantamento(turno: Turno): Promise<Levantamento> {
+  const fontesDoTurno = FONTES.filter((f) => f.turno === turno);
   const resultados = await Promise.allSettled(fontesDoTurno.map((f) => baixar(f)));
 
   const fontes: StatusFonte[] = [];
@@ -130,7 +130,7 @@ export async function obterLevantamento(): Promise<Levantamento> {
   const confirmacoes = (d: PaisProvisorio, exceto?: string) =>
     textos.filter((t) => t.id !== exceto && confirma(t.texto, d)).map((t) => t.nome);
 
-  const snapshots = new Map((TSE.turno === "1" ? PROVISORIO : []).map((p) => [p.iso, p]));
+  const snapshots = new Map((turno === "1" ? PROVISORIO : []).map((p) => [p.iso, p]));
   const porIso = new Map<string, Leitura[]>();
   for (const l of leituras) porIso.set(l.dado.iso, [...(porIso.get(l.dado.iso) ?? []), l]);
 
@@ -177,7 +177,7 @@ export async function obterLevantamento(): Promise<Levantamento> {
           "A soma dos votos listados não fecha com os percentuais publicados pela própria fonte; os valores podem estar incompletos.",
         aviso,
         divergencia,
-        TSE.turno === "1" ? OBSERVACOES_PAISES[iso] : undefined,
+        turno === "1" ? OBSERVACOES_PAISES[iso] : undefined,
         dado.ressalva,
       ]
         .filter(Boolean)

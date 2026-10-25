@@ -47,8 +47,9 @@ Observações sobre o formato:
 
 ### Escolha do turno
 
-O padrão é o 2º turno (`6258`). Para rever o 1º, defina `TSE_ELEICAO=6257` e `TSE_TURNO=1`. As fontes de
-BU e a cópia salva são separadas por turno: os BUs do 1º turno nunca aparecem no 2º.
+O seletor do cabeçalho alterna entre o 1º (`6257`) e o 2º turno (`6258`) via `?turno=1|2`. O padrão é o 2º;
+`TSE_TURNO=1` inverte. O 1º turno já está fechado e sai direto do TSE. As fontes de BU e a cópia salva
+são separadas por turno e só são consultadas enquanto o TSE não tem votos no exterior.
 
 ## Rodando localmente
 

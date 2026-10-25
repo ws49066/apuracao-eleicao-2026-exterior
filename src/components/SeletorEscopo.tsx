@@ -39,7 +39,7 @@ const OPCOES: Opcao[] = [
 const semAcento = (texto: string) =>
   texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export function SeletorEscopo({ valorAtual }: { valorAtual: string }) {
+export function SeletorEscopo({ valorAtual, turno }: { valorAtual: string; turno: string }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState("");
@@ -76,7 +76,7 @@ export function SeletorEscopo({ valorAtual }: { valorAtual: string }) {
     setAberto(false);
     setBusca("");
     const [tipo, id] = valor.split(":");
-    const destino = id ? `/?tipo=${tipo}&id=${id}` : "/";
+    const destino = id ? `/?turno=${turno}&tipo=${tipo}&id=${id}` : `/?turno=${turno}`;
     iniciarTransicao(() => router.push(destino, { scroll: false }));
   }
 
