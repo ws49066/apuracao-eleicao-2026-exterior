@@ -206,7 +206,10 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
                   `Votando · encerra ${horaBrasilia(statusSelecionado.ultimoFechamento, agora)} (Brasília), em ${faltam(statusSelecionado.ultimoFechamento, agora)}`}
                 {statusSelecionado.estado === "aguardando" &&
                   `Ainda não abriu · abre ${horaBrasilia(statusSelecionado.abre, agora)} (Brasília)`}
-                {statusSelecionado.estado === "encerrada" && "Votação encerrada"}
+                {statusSelecionado.estado === "encerrada" &&
+                  (selecionado.lula + selecionado.flavio > 0
+                    ? "Votação encerrada · apurado"
+                    : "Votação encerrada · aguardando apuração")}
               </p>
             )}
             <button

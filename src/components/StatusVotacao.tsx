@@ -1,9 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { DadosMapa } from "@/lib/apuracao";
 import { bandeira, paisPorIso } from "@/lib/locais";
 import { faltam, horaBrasilia, statusTodos, type StatusPais } from "@/lib/horarios";
 import { useAgora } from "./useAgora";
+
+function Check({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" className={`inline h-4 w-4 shrink-0 ${className}`} aria-hidden>
+      <circle cx="10" cy="10" r="10" fill="currentColor" />
+      <path d="M5.5 10.5l3 3 6-6.5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function Linha({ s, agora, tipo }: { s: StatusPais; agora: Date; tipo: "votando" | "aguardando" }) {
   const nome = paisPorIso(s.iso)?.nome ?? s.iso;
@@ -35,6 +45,31 @@ function Linha({ s, agora, tipo }: { s: StatusPais; agora: Date; tipo: "votando"
 
 export function StatusVotacao({ turno }: { turno: "1" | "2" }) {
   const agora = useAgora();
+  const [dados, setDados] = useState<DadosMapa | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    async function carregar() {
+      try {
+        const r = await fetch(`/api/mapa?turno=${turno}`, { cache: "no-store" });
+        if (r.ok && !cancelado) setDados((await r.json()) as DadosMapa);
+      } catch {
+        /* sem rede: mantém o que já tinha */
+      }
+    }
+    carregar();
+    const id = setInterval(carregar, 60_000);
+    return () => {
+      cancelado = true;
+      clearInterval(id);
+    };
+  }, [turno]);
+
+  const apurados = useMemo(
+    () => new Set((dados?.paises ?? []).filter((p) => p.lula + p.flavio > 0).map((p) => p.iso)),
+    [dados],
+  );
+  const origem = dados?.fonte === "oficial" ? "resultado oficial do TSE" : "BUs da imprensa, não oficial";
 
   const grupos = useMemo(() => {
     if (!agora) return null;
@@ -55,7 +90,16 @@ export function StatusVotacao({ turno }: { turno: "1" | "2" }) {
   if (grupos.votando.length === 0 && grupos.aguardando.length === 0) {
     return (
       <p className="mb-4 rounded-lg border border-tse-borda bg-white px-4 py-2 text-sm text-tse-suave shadow-sm">
-        Votação encerrada nos {grupos.total} países.
+        Votação encerrada nos {grupos.total} países
+        {dados && (
+          <>
+            {" · "}
+            <span className="inline-flex items-center gap-1 font-semibold text-tse-verde">
+              <Check className="text-tse-verde-claro" /> {apurados.size} com votos apurados
+            </span>
+          </>
+        )}
+        .
       </p>
     );
   }
@@ -86,6 +130,11 @@ export function StatusVotacao({ turno }: { turno: "1" | "2" }) {
           <span className="rounded-full bg-tse-vermelho px-3 py-1 text-white">Votando {grupos.votando.length}</span>
           <span className="rounded-full bg-tse-amarelo px-3 py-1">Ainda não abriu {grupos.aguardando.length}</span>
           <span className="rounded-full bg-tse-fundo px-3 py-1 text-tse-suave">Encerrada {grupos.encerrada.length}</span>
+          {dados && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-tse-verde px-3 py-1 text-white">
+              <Check className="text-tse-verde-claro" /> Apurada {grupos.encerrada.filter((s) => apurados.has(s.iso)).length}
+            </span>
+          )}
         </div>
       </div>
       <p className="mb-2 text-xs text-tse-suave">
@@ -117,17 +166,38 @@ export function StatusVotacao({ turno }: { turno: "1" | "2" }) {
         </div>
       </div>
 
-      <details className="mt-3">
+      <details className="mt-3" open>
         <summary className="cursor-pointer text-sm font-semibold">
           Já encerraram ({grupos.encerrada.length})
+          {dados && (
+            <span className="ml-2 text-xs font-normal text-tse-suave">
+              <Check className="mr-0.5 align-text-bottom text-tse-verde-claro" />
+              apurado ({origem}) · <span className="mx-0.5">○</span> aguardando apuração
+            </span>
+          )}
         </summary>
-        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {grupos.encerrada.map((s) => (
-            <li key={s.iso} className="whitespace-nowrap">
-              <span aria-hidden>{bandeira(s.iso)}</span> {paisPorIso(s.iso)?.nome}
-              <span className="tabular ml-1 text-xs text-tse-suave">{horaBrasilia(s.ultimoFechamento, agora)}</span>
-            </li>
-          ))}
+        <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1.5 text-sm">
+          {[...grupos.encerrada]
+            .sort((a, b) => Number(apurados.has(b.iso)) - Number(apurados.has(a.iso)))
+            .map((s) => {
+              const ok = apurados.has(s.iso);
+              return (
+                <li
+                  key={s.iso}
+                  title={ok ? `Votos apurados (${origem})` : "Votação encerrada; apuração ainda não divulgada"}
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 ${
+                    ok ? "border-tse-verde-claro bg-tse-verde-claro/15 font-semibold" : "border-tse-borda text-tse-suave"
+                  }`}
+                >
+                  {dados &&
+                    (ok ? <Check className="text-tse-verde-claro" /> : <span aria-hidden className="w-4 text-center text-xs">○</span>)}
+                  <span aria-hidden>{bandeira(s.iso)}</span> {paisPorIso(s.iso)?.nome}
+                  <span className="tabular text-xs font-normal text-tse-suave">
+                    {horaBrasilia(s.ultimoFechamento, agora)}
+                  </span>
+                </li>
+              );
+            })}
         </ul>
       </details>
     </section>
