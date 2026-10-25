@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import mapa from "@/data/mapa-paises.json";
 import type { DadosMapa, PaisMapa } from "@/lib/apuracao";
 import { inteiro, percentual } from "@/lib/format";
-import { bandeira } from "@/lib/locais";
+import { faltam, horaBrasilia, statusPais } from "@/lib/horarios";
+import { bandeira, paisPorIso } from "@/lib/locais";
+import type { Turno } from "@/lib/tse/config";
+import { useAgora } from "./useAgora";
 
 const COR_LULA = "#d62839";
 const COR_FLAVIO = "#1f6feb";
@@ -34,6 +37,9 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
   const [dados, setDados] = useState<DadosMapa | null>(null);
   const [erro, setErro] = useState(false);
   const [ativo, setAtivo] = useState<{ iso: string; x: number; y: number } | null>(null);
+  const agora = useAgora(60_000);
+  const status = (iso: string) =>
+    agora && paisPorIso(iso) ? statusPais(iso, turno as Turno, agora) : null;
 
   useEffect(() => {
     let cancelado = false;
@@ -72,7 +78,16 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
   }, [dados]);
 
   const comDados = resumo.lula + resumo.flavio + resumo.empate;
-  const selecionado = ativo ? porIso.get(ativo.iso) : undefined;
+  const selecionado: PaisMapa | undefined = ativo
+    ? (porIso.get(ativo.iso) ?? {
+        iso: ativo.iso,
+        nome: paisPorIso(ativo.iso)?.nome ?? ativo.iso,
+        lula: 0,
+        flavio: 0,
+        provisorio: false,
+      })
+    : undefined;
+  const statusSelecionado = selecionado ? status(selecionado.iso) : null;
 
   function mostrar(iso: string, evento: React.MouseEvent | React.FocusEvent) {
     const caixa = (evento.currentTarget.closest("[data-mapa]") as HTMLElement).getBoundingClientRect();
@@ -83,8 +98,7 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
   }
 
   const interativo = (iso: string) => {
-    const p = porIso.get(iso);
-    if (!p || p.lula + p.flavio === 0) return {};
+    if (!paisPorIso(iso)) return {};
     return {
       onMouseMove: (e: React.MouseEvent) => mostrar(iso, e),
       onMouseLeave: () => setAtivo(null),
@@ -124,15 +138,22 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
           role="img"
           aria-label="Mapa-múndi com o candidato líder em cada país"
         >
+          <defs>
+            <pattern id="listras" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="7" height="7" fill="#fff6d0" />
+              <line x1="0" y1="0" x2="0" y2="7" stroke="#f2c200" strokeWidth="3" />
+            </pattern>
+          </defs>
           <rect x="0" y={mapa.deslocY} width={mapa.largura} height={mapa.altura} fill="#f6f9fc" rx="8" />
           {mapa.paises.map((p) => {
             const e = estilo(porIso.get(p.iso));
             const alvo = ativo?.iso === p.iso;
+            const aindaVota = e.fill === COR_VAZIO && status(p.iso)?.estado === "votando";
             return (
               <path
                 key={p.iso}
                 d={p.d}
-                fill={e.fill}
+                fill={aindaVota ? "url(#listras)" : e.fill}
                 fillOpacity={e.opacity}
                 stroke={alvo ? "#1b1b1b" : "#ffffff"}
                 strokeWidth={alvo ? 1.2 : 0.5}
@@ -144,13 +165,14 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
           })}
           {mapa.marcadores.map((m) => {
             const e = estilo(porIso.get(m.iso));
+            const aindaVota = e.fill === COR_VAZIO && status(m.iso)?.estado === "votando";
             return (
               <circle
                 key={m.iso}
                 cx={m.x}
                 cy={m.y}
                 r={5}
-                fill={e.fill}
+                fill={aindaVota ? "#f2c200" : e.fill}
                 fillOpacity={e.opacity}
                 stroke={ativo?.iso === m.iso ? "#1b1b1b" : "#ffffff"}
                 strokeWidth={1.2}
@@ -168,10 +190,25 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
             <p className="font-bold">
               <span aria-hidden>{bandeira(selecionado.iso)}</span> {selecionado.nome}
             </p>
-            <Barra p={selecionado} />
-            <p className="mt-1 text-[11px] text-tse-suave">
-              {selecionado.provisorio ? "Provisório (BUs da imprensa)" : "Oficial TSE"}
-            </p>
+            {selecionado.lula + selecionado.flavio > 0 ? (
+              <>
+                <Barra p={selecionado} />
+                <p className="mt-1 text-[11px] text-tse-suave">
+                  {selecionado.provisorio ? "Provisório (BUs da imprensa)" : "Oficial TSE"}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-xs text-tse-suave">Sem votos apurados.</p>
+            )}
+            {statusSelecionado && agora && (
+              <p className="mt-1.5 text-xs font-semibold">
+                {statusSelecionado.estado === "votando" &&
+                  `Votando · encerra ${horaBrasilia(statusSelecionado.ultimoFechamento, agora)} (Brasília), em ${faltam(statusSelecionado.ultimoFechamento, agora)}`}
+                {statusSelecionado.estado === "aguardando" &&
+                  `Ainda não abriu · abre ${horaBrasilia(statusSelecionado.abre, agora)} (Brasília)`}
+                {statusSelecionado.estado === "encerrada" && "Votação encerrada"}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => router.push(`/?turno=${turno}&tipo=pais&id=${selecionado.iso}`, { scroll: true })}
@@ -197,6 +234,7 @@ export function MapaMundi({ totalPaises, turno }: { totalPaises: number; turno: 
         <Legenda cor={COR_FLAVIO} texto="Flávio Bolsonaro" />
         <Legenda cor={COR_EMPATE} texto="Empate" />
         <Legenda cor={COR_VAZIO} texto="Sem votos apurados" />
+        <Legenda cor="repeating-linear-gradient(45deg,#fff6d0 0 3px,#f2c200 3px 5px)" texto="Ainda votando" />
         <span>
           Cor mais forte = vitória mais folgada. Passe o mouse ou toque no país.
           {turno === "1" && " Compara só Lula e Flávio; o 1º turno teve 12 candidatos."}
@@ -231,7 +269,7 @@ function Placar({
 function Legenda({ cor, texto }: { cor: string; texto: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: cor }} />
+      <span className="h-3 w-3 rounded-sm" style={{ background: cor }} />
       {texto}
     </span>
   );

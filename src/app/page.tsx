@@ -1,5 +1,6 @@
 import { BotaoAtualizar } from "@/components/BotaoAtualizar";
 import { CartaoCandidato } from "@/components/CartaoCandidato";
+import { StatusVotacao } from "@/components/StatusVotacao";
 import { MapaMundi } from "@/components/MapaMundi";
 import { MonitorFontes } from "@/components/MonitorFontes";
 import { SobreDadosNaoOficiais } from "@/components/SobreDadosNaoOficiais";
@@ -180,6 +181,7 @@ export default async function Pagina({ searchParams }: Props) {
         ) : (
           <>
             <Resumo apuracao={apuracao} />
+            <StatusVotacao turno={turno} />
             {levantamento && (
               <>
                 <MonitorFontes versao={levantamento.versao} resumo={levantamento.resumo} turno={turno} />
