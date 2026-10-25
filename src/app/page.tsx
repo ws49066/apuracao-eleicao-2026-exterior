@@ -1,5 +1,6 @@
 import { BotaoAtualizar } from "@/components/BotaoAtualizar";
 import { CartaoCandidato } from "@/components/CartaoCandidato";
+import { MapaMundi } from "@/components/MapaMundi";
 import { MonitorFontes } from "@/components/MonitorFontes";
 import { SobreDadosNaoOficiais } from "@/components/SobreDadosNaoOficiais";
 import { PainelDadosGerais } from "@/components/PainelDadosGerais";
@@ -7,7 +8,7 @@ import { SeletorEscopo } from "@/components/SeletorEscopo";
 import { TabelaPaises } from "@/components/TabelaPaises";
 import { obterLevantamento, type Levantamento } from "@/lib/fontes";
 import { obterApuracao, type FiltroEscopo } from "@/lib/apuracao";
-import { bandeira } from "@/lib/locais";
+import { bandeira, PAISES } from "@/lib/locais";
 import { inteiro, percentual } from "@/lib/format";
 import { TSE } from "@/lib/tse/config";
 import type { Apuracao } from "@/lib/tse/normalize";
@@ -96,13 +97,16 @@ function AvisoProvisorio({ apuracao, lev }: { apuracao: Apuracao; lev: Levantame
       <p className="mt-1 text-tse-suave">
         O TSE ainda não divulgou a totalização. Os votos abaixo vêm de boletins de urna levantados
         pela imprensa ({p.paisesCobertos} {p.paisesCobertos === 1 ? "país" : "países"}) e serão
-        substituídos pelo resultado oficial assim que ele for publicado. Fonte principal:{" "}
+        substituídos pelo resultado oficial assim que ele for publicado. Fontes:{" "}
         {lev.fontes
           .filter((f) => f.papel === "principal")
-          .map((f) => (
-            <a key={f.id} href={f.url} className="font-semibold underline" target="_blank" rel="noreferrer">
-              {f.nome}
-            </a>
+          .map((f, i) => (
+            <span key={f.id}>
+              {i > 0 && ", "}
+              <a href={f.url} className="font-semibold underline" target="_blank" rel="noreferrer">
+                {f.nome}
+              </a>
+            </span>
           ))}
         .
       </p>
@@ -171,6 +175,7 @@ export default async function Pagina({ searchParams }: Props) {
             <Resumo apuracao={apuracao} />
             <MonitorFontes versao={levantamento.versao} resumo={levantamento.resumo} />
             <AvisoProvisorio apuracao={apuracao} lev={levantamento} />
+            <MapaMundi totalPaises={PAISES.length} />
             {apuracao.provisorio && <SobreDadosNaoOficiais lev={levantamento} />}
             <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
               <aside>
