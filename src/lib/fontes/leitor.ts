@@ -4,10 +4,22 @@ import type { PaisProvisorio } from "@/data/provisorio";
 export const semAcento = (t: string) =>
   t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
+const ACENTOS: Record<string, string> = {
+  acute: "\u0301",
+  grave: "\u0300",
+  circ: "\u0302",
+  tilde: "\u0303",
+  uml: "\u0308",
+  cedil: "\u0327",
+};
+
 export function htmlParaTexto(html: string): string {
   return html
     .replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, " ")
     .replace(/<[^>]+>/g, " ")
+    .replace(/&([a-z])(acute|grave|circ|tilde|uml|cedil);/gi, (_, letra: string, acento: string) =>
+      (letra + ACENTOS[acento.toLowerCase()]).normalize("NFC"),
+    )
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
@@ -135,5 +147,58 @@ export function lerListaDuelo(html: string): PaisProvisorio[] {
       lideRefPct: Number(m[2].replace(",", ".")),
     });
   }
+  return [...resultado.values()];
+}
+
+const NOMES_DUELO: [RegExp, string][] = [
+  [/^(lula|petista|candidato do pt)$/, "LULA"],
+  [/^(flavio|candidato do pl|senador do pl)$/, "FLAVIO BOLSONARO"],
+];
+const GRUPO_NOMES = "lula|petista|candidato do pt|flavio|candidato do pl|senador do pl";
+const P_NUMERO_ANTES = new RegExp(`(\\d[\\d.]*)\\s+(?:votos?\\s+)?(?:para|de)\\s+(${GRUPO_NOMES})`, "g");
+const P_NOME_ANTES = new RegExp(
+  `(${GRUPO_NOMES})(?:\\s+bolsonaro)?[^.\\d]{0,40}?\\b(?:recebeu|somou|teve|obteve|conquistou|registrou|alcancou|fez)\\s+(\\d[\\d.]*)`,
+  "g",
+);
+
+const numero = (t: string) => Number(t.replace(/\.$/, "").replace(/\./g, ""));
+
+/**
+ * Lê matérias em frases ("Na China, Lula somou 502 votos, enquanto Flávio
+ * recebeu 267"). Como cada veículo escreve de um jeito, só aceita o trecho
+ * logo após o nome do país e só quando acha os dois candidatos com líder
+ * à frente; o primeiro número de cada candidato vale.
+ */
+export function lerProsaDuelo(html: string): PaisProvisorio[] {
+  const texto = semAcento(htmlParaTexto(html));
+
+  const cabecalhos = PAISES.flatMap((pais) => {
+    const nome = semAcento(pais.nome).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return [...texto.matchAll(new RegExp(`(?:^|\\s)(?:na|no|nos|nas|em)\\s+${nome}(?=[\\s,.:;])`, "g"))].map(
+      (m) => ({ iso: pais.iso, inicio: m.index ?? 0 }),
+    );
+  }).sort((a, b) => a.inicio - b.inicio);
+
+  const resultado = new Map<string, PaisProvisorio>();
+  cabecalhos.forEach((cab, i) => {
+    if (resultado.has(cab.iso)) return;
+    const fim = Math.min(cab.inicio + 260, cabecalhos.slice(i + 1).find((c) => c.iso !== cab.iso)?.inicio ?? Infinity);
+    const bloco = texto.slice(cab.inicio, fim);
+
+    const achados: { pos: number; nome: string; votos: number }[] = [];
+    for (const m of bloco.matchAll(P_NUMERO_ANTES)) {
+      const nome = NOMES_DUELO.find(([r]) => r.test(m[2]))?.[1];
+      if (nome) achados.push({ pos: m.index ?? 0, nome, votos: numero(m[1]) });
+    }
+    for (const m of bloco.matchAll(P_NOME_ANTES)) {
+      const nome = NOMES_DUELO.find(([r]) => r.test(m[1]))?.[1];
+      if (nome) achados.push({ pos: m.index ?? 0, nome, votos: numero(m[2]) });
+    }
+    achados.sort((a, b) => a.pos - b.pos);
+
+    const votos: Record<string, number> = {};
+    for (const a of achados) if (!(a.nome in votos)) votos[a.nome] = a.votos;
+    if (Object.keys(votos).length === 2) resultado.set(cab.iso, { iso: cab.iso, votos });
+  });
   return [...resultado.values()];
 }

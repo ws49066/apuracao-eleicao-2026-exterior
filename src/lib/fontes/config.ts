@@ -5,8 +5,8 @@ export interface FonteConfig {
   /** "principal" é lida e entra nos números; "conferencia" só confirma ou contesta. */
   papel: "principal" | "conferencia";
   turno: "1" | "2";
-  /** Como a matéria organiza os números; só vale para a fonte principal. */
-  formato?: "g1" | "cnn";
+  /** Como a matéria organiza os números. Sem formato, a fonte só confere os números das outras. */
+  formato?: "g1" | "lista" | "prosa";
 }
 
 export const FONTES: FonteConfig[] = [
@@ -93,28 +93,31 @@ export const FONTES: FonteConfig[] = [
     nome: "CNN Brasil",
     papel: "principal",
     turno: "2",
-    formato: "cnn",
+    formato: "lista",
     url: "https://www.cnnbrasil.com.br/internacional/eleicoes-2026-exterior-boletins-urna-flavio-lula/",
   },
   {
     id: "ultimas-noticias-t2",
     nome: "Últimas Notícias",
-    papel: "conferencia",
+    papel: "principal",
     turno: "2",
+    formato: "lista",
     url: "https://ultimasnoticias.inf.br/noticia/eleicoes-2026-veja-os-resultados-dos-paises-que-ja-encerraram-a-votacao/",
   },
   {
     id: "folha-bv-t2",
     nome: "Folha BV",
-    papel: "conferencia",
+    papel: "principal",
     turno: "2",
+    formato: "prosa",
     url: "https://www.folhabv.com.br/politica/urnas-no-exterior-apontam-vantagem-de-lula-sobre-flavio-bolsonaro-nas-primeiras-apuracoes/",
   },
   {
     id: "portal-gerais-t2",
     nome: "Portal Gerais",
-    papel: "conferencia",
+    papel: "principal",
     turno: "2",
+    formato: "prosa",
     url: "https://portalgerais.com/lula-vence-na-nova-zelandia-china-e-coreia-do-sul-flavio-ganha-no-japao",
   },
 ];

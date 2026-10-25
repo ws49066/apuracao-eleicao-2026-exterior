@@ -55,7 +55,7 @@ export function SobreDadosNaoOficiais({ lev }: { lev: Levantamento }) {
                 {p.confirmadoPor.length > 0
                   ? `confirmado por ${p.confirmadoPor.length} ${p.confirmadoPor.length === 1 ? "outra fonte" : "outras fontes"}`
                   : "sem confirmação de outra fonte"}
-                {p.origem === "snapshot" && " · cópia salva (coleta não encontrou)"}
+                {` · números de ${p.fonte}`}
               </li>
             ))}
           </ul>

@@ -3,10 +3,12 @@ import { OBSERVACOES_PAISES, PROVISORIO, type PaisProvisorio } from "@/data/prov
 import { PAISES, paisPorIso } from "../locais";
 import { FONTES, type FonteConfig } from "./config";
 import { TSE } from "../tse/config";
-import { htmlParaTexto, lerListaDuelo, lerMateriaPorPais, semAcento, totalVotos } from "./leitor";
+import { htmlParaTexto, lerListaDuelo, lerMateriaPorPais, lerProsaDuelo, semAcento, totalVotos } from "./leitor";
 
 export interface PaisLevantado extends PaisProvisorio {
   origem: "coleta" | "snapshot";
+  /** Fonte de onde vieram os números exibidos. */
+  fonte: string;
   /** Fontes de conferência cujo texto traz os mesmos números do líder e do 2º colocado. */
   confirmadoPor: string[];
 }
@@ -72,13 +74,28 @@ function confirma(textoSemAcento: string, pais: PaisProvisorio): boolean {
   return false;
 }
 
+interface Leitura {
+  fonteId: string;
+  fonte: string;
+  estrutura: "lista" | "prosa";
+  dado: PaisProvisorio;
+}
+
+const ROTULO: Record<string, string> = { "FLAVIO BOLSONARO": "Flávio", LULA: "Lula" };
+const rotulo = (nome: string) => ROTULO[nome] ?? nome.charAt(0) + nome.slice(1).toLowerCase();
+
+function resumoLeitura(l: Leitura): string {
+  const [a, b] = Object.entries(l.dado.votos).sort((x, y) => y[1] - x[1]);
+  return `${l.fonte}: ${rotulo(a[0])} ${a[1].toLocaleString("pt-BR")}${b ? ` × ${rotulo(b[0])} ${b[1].toLocaleString("pt-BR")}` : ""}`;
+}
+
 export async function obterLevantamento(): Promise<Levantamento> {
   const fontesDoTurno = FONTES.filter((f) => f.turno === TSE.turno);
   const resultados = await Promise.allSettled(fontesDoTurno.map((f) => baixar(f)));
 
   const fontes: StatusFonte[] = [];
-  let lidos: PaisProvisorio[] = [];
-  const textosConferencia: { nome: string; texto: string }[] = [];
+  const leituras: Leitura[] = [];
+  const textos: { id: string; nome: string; texto: string }[] = [];
 
   fontesDoTurno.forEach((fonte, i) => {
     const r = resultados[i];
@@ -87,55 +104,86 @@ export async function obterLevantamento(): Promise<Levantamento> {
       fontes.push({ ...base, ok: false, erro: r.reason instanceof Error ? r.reason.message : "falha" });
       return;
     }
-    if (fonte.papel === "principal") {
-      lidos = fonte.formato === "cnn" ? lerListaDuelo(r.value) : lerMateriaPorPais(r.value);
-      fontes.push({ ...base, ok: lidos.length > 0, paisesLidos: lidos.length, erro: lidos.length ? undefined : "formato não reconhecido" });
-    } else {
-      textosConferencia.push({ nome: fonte.nome, texto: semAcento(htmlParaTexto(r.value)) });
+    textos.push({ id: fonte.id, nome: fonte.nome, texto: semAcento(htmlParaTexto(r.value)) });
+    if (!fonte.formato) {
       fontes.push({ ...base, ok: true });
+      return;
     }
+    const lidos =
+      fonte.formato === "lista"
+        ? lerListaDuelo(r.value)
+        : fonte.formato === "prosa"
+          ? lerProsaDuelo(r.value)
+          : lerMateriaPorPais(r.value);
+    for (const dado of lidos) {
+      leituras.push({ fonteId: fonte.id, fonte: fonte.nome, estrutura: fonte.formato === "prosa" ? "prosa" : "lista", dado });
+    }
+    fontes.push({ ...base, ok: lidos.length > 0, paisesLidos: lidos.length, erro: lidos.length ? undefined : "formato não reconhecido" });
   });
 
+  // Com dois candidatos os dois números estão na própria linha; o percentual das matérias costuma
+  // ficar para trás nas atualizações, então a conferência só vale para a lista completa de candidatos.
   const fechaComRef = (d: PaisProvisorio) =>
+    Object.keys(d.votos).length <= 2 ||
     d.lideRefPct === undefined ||
     Math.abs((Math.max(...Object.values(d.votos)) / totalVotos(d)) * 100 - d.lideRefPct) <= 0.3;
-  const confirmacoes = (d: PaisProvisorio) =>
-    textosConferencia.filter((t) => confirma(t.texto, d)).map((t) => t.nome);
+  const confirmacoes = (d: PaisProvisorio, exceto?: string) =>
+    textos.filter((t) => t.id !== exceto && confirma(t.texto, d)).map((t) => t.nome);
 
   const snapshots = new Map((TSE.turno === "1" ? PROVISORIO : []).map((p) => [p.iso, p]));
-  const lidosPorIso = new Map(lidos.map((p) => [p.iso, p]));
+  const porIso = new Map<string, Leitura[]>();
+  for (const l of leituras) porIso.set(l.dado.iso, [...(porIso.get(l.dado.iso) ?? []), l]);
 
-  const paises: PaisLevantado[] = [...new Set([...snapshots.keys(), ...lidosPorIso.keys()])].map((iso) => {
-    const lido = lidosPorIso.get(iso);
+  const paises: PaisLevantado[] = [...new Set([...snapshots.keys(), ...porIso.keys()])].map((iso) => {
+    const todas = porIso.get(iso) ?? [];
+    const maiorEstruturada = Math.max(0, ...todas.filter((l) => l.estrutura === "lista").map((l) => totalVotos(l.dado)));
+    // Texto corrido que traga mais de 4x o total de uma lista estruturada provavelmente pegou outro número.
+    const plausiveis = todas.filter(
+      (l) => l.estrutura === "lista" || maiorEstruturada === 0 || totalVotos(l.dado) <= 4 * maiorEstruturada,
+    );
+    const coerentes = plausiveis.filter((l) => fechaComRef(l.dado));
+    const escolhida = [...(coerentes.length ? coerentes : plausiveis)].sort(
+      (a, b) => totalVotos(b.dado) - totalVotos(a.dado),
+    )[0];
     const salvo = snapshots.get(iso);
-    let dado = lido ?? salvo!;
-    let origem: PaisLevantado["origem"] = lido ? "coleta" : "snapshot";
-    let confirmadoPor = confirmacoes(dado);
+
+    let dado: PaisProvisorio;
+    let origem: PaisLevantado["origem"];
+    let fonte: string;
+    let fonteId: string | undefined;
     let aviso: string | undefined;
 
-    if (lido && salvo && !fechaComRef(lido) && fechaComRef(salvo)) {
-      const confirmadoSalvo = confirmacoes(salvo);
-      if (confirmadoSalvo.length > confirmadoPor.length) {
-        dado = salvo;
-        origem = "snapshot";
-        confirmadoPor = confirmadoSalvo;
+    if (escolhida && !(coerentes.length === 0 && salvo && fechaComRef(salvo))) {
+      ({ dado, fonte, fonteId } = escolhida);
+      origem = "coleta";
+    } else {
+      dado = salvo!;
+      origem = "snapshot";
+      fonte = "cópia salva";
+      if (escolhida) {
         aviso =
-          "A matéria atual traz números inconsistentes para este país; mantidos os anteriores, que fecham com o percentual publicado e são confirmados por outras fontes.";
+          "A matéria atual traz números inconsistentes para este país; mantidos os anteriores, que fecham com o percentual publicado.";
       }
     }
+
+    const divergencia =
+      origem === "coleta" && plausiveis.length > 1 && new Set(plausiveis.map((l) => totalVotos(l.dado))).size > 1
+        ? `Fontes divergem (${plausiveis.map(resumoLeitura).join("; ")}); exibida a leitura com mais votos, de ${fonte}.`
+        : undefined;
 
     const ressalva =
       [
         !fechaComRef(dado) &&
           "A soma dos votos listados não fecha com os percentuais publicados pela própria fonte; os valores podem estar incompletos.",
         aviso,
+        divergencia,
         TSE.turno === "1" ? OBSERVACOES_PAISES[iso] : undefined,
         dado.ressalva,
       ]
         .filter(Boolean)
         .join(" ") || undefined;
 
-    return { ...dado, ressalva, origem, confirmadoPor };
+    return { ...dado, ressalva, origem, fonte, confirmadoPor: confirmacoes(dado, fonteId) };
   });
   paises.sort((a, b) => (paisPorIso(a.iso)?.nome ?? "").localeCompare(paisPorIso(b.iso)?.nome ?? "", "pt-BR"));
 
