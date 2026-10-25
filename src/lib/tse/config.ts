@@ -17,11 +17,11 @@ export const TSE = {
   ambiente: process.env.TSE_AMBIENTE ?? "oficial",
   ciclo: process.env.TSE_CICLO ?? "ele2026",
   /**
-   * Eleição Ordinária Federal 2026 — 1º turno (04/10/2026).
-   * Para o 2º turno basta publicar com TSE_ELEICAO=6258 e TSE_TURNO=2.
+   * Eleição Ordinária Federal 2026 — 2º turno (25/10/2026).
+   * Para rever o 1º turno, publique com TSE_ELEICAO=6257 e TSE_TURNO=1.
    */
-  eleicao: process.env.TSE_ELEICAO ?? "6257",
-  turno: process.env.TSE_TURNO ?? "1",
+  eleicao: process.env.TSE_ELEICAO ?? "6258",
+  turno: process.env.TSE_TURNO ?? "2",
   /** Único cargo votado no exterior. */
   cargo: "0001",
   uf: "zz",

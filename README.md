@@ -25,7 +25,7 @@ Criado por **Wanderson Oliveira**.
 O TSE não expõe uma API REST: ele publica arquivos JSON estáticos num CDN. O exterior é tratado
 como a **UF `zz`**, e cada cidade com seção eleitoral no exterior é um "município" dessa UF.
 
-Base: `https://resultados.tse.jus.br/oficial/ele2026/6257`
+Base: `https://resultados.tse.jus.br/oficial/ele2026/6258` (2º turno; o 1º turno é `6257`)
 
 | Finalidade | Caminho |
 | --- | --- |
@@ -45,15 +45,10 @@ Observações sobre o formato:
 - O TSE **não informa a que país cada cidade pertence** — esse vínculo é mantido em
   `src/lib/locais.ts`, junto com o continente e o código ISO usado para a bandeira.
 
-### Mudança para o 2º turno
+### Escolha do turno
 
-O 1º turno é a eleição `6257`; o 2º turno é a `6258`. Basta definir as variáveis de ambiente
-(veja `.env.example`), sem alterar código:
-
-```
-TSE_ELEICAO=6258
-TSE_TURNO=2
-```
+O padrão é o 2º turno (`6258`). Para rever o 1º, defina `TSE_ELEICAO=6257` e `TSE_TURNO=1`. As fontes de
+BU e a cópia salva são separadas por turno: os BUs do 1º turno nunca aparecem no 2º.
 
 ## Rodando localmente
 

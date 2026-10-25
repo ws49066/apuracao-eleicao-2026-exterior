@@ -94,3 +94,46 @@ export function lerMateriaPorPais(html: string): PaisProvisorio[] {
 
 export const totalVotos = (p: PaisProvisorio) =>
   Object.values(p.votos).reduce((a, b) => a + b, 0) + (p.naoIdentificados ?? 0);
+
+const ALIAS_PAISES: Record<string, string> = { "hong kong": "HK" };
+
+function resolverPais(trecho: string): string | undefined {
+  const t = semAcento(trecho).trim();
+  let melhor: { iso: string; tamanho: number } | undefined;
+  const candidatos = [
+    ...PAISES.map((p) => [semAcento(p.nome), p.iso] as const),
+    ...Object.entries(ALIAS_PAISES),
+  ];
+  for (const [nome, iso] of candidatos) {
+    if (t.endsWith(nome) && (!melhor || nome.length > melhor.tamanho)) melhor = { iso, tamanho: nome.length };
+  }
+  return melhor?.iso;
+}
+
+const REGEX_CNN =
+  /([a-z][a-z' .]*?)\s*\((\d[\d,]*)%\)\s*,?\s*com\s+([\d.]+)\s+votos?\s+contra\s+([\d.]+)\s+de\s+(lula|flavio)/g;
+
+/**
+ * Lê listas do tipo "Japão (80,08%), com 28.538 votos contra 7.098 de Lula",
+ * próprias de disputa com dois candidatos. O líder é o oposto do nome citado
+ * depois de "de". Linhas em que o "líder" não tem mais votos que o outro
+ * (erro da matéria) são descartadas.
+ */
+export function lerListaDuelo(html: string): PaisProvisorio[] {
+  const texto = semAcento(htmlParaTexto(html));
+  const resultado = new Map<string, PaisProvisorio>();
+  for (const m of texto.matchAll(REGEX_CNN)) {
+    const iso = resolverPais(m[1]);
+    const lider = Number(m[3].replace(/\./g, ""));
+    const outro = Number(m[4].replace(/\./g, ""));
+    if (!iso || lider <= outro || resultado.has(iso)) continue;
+    const [nomeLider, nomeOutro] =
+      m[5] === "lula" ? ["FLAVIO BOLSONARO", "LULA"] : ["LULA", "FLAVIO BOLSONARO"];
+    resultado.set(iso, {
+      iso,
+      votos: { [nomeLider]: lider, [nomeOutro]: outro },
+      lideRefPct: Number(m[2].replace(",", ".")),
+    });
+  }
+  return [...resultado.values()];
+}

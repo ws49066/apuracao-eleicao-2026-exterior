@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { OBSERVACOES_PAISES, PROVISORIO, type PaisProvisorio } from "@/data/provisorio";
 import { PAISES, paisPorIso } from "../locais";
 import { FONTES, type FonteConfig } from "./config";
-import { htmlParaTexto, lerMateriaPorPais, semAcento, totalVotos } from "./leitor";
+import { TSE } from "../tse/config";
+import { htmlParaTexto, lerListaDuelo, lerMateriaPorPais, semAcento, totalVotos } from "./leitor";
 
 export interface PaisLevantado extends PaisProvisorio {
   origem: "coleta" | "snapshot";
@@ -72,13 +73,14 @@ function confirma(textoSemAcento: string, pais: PaisProvisorio): boolean {
 }
 
 export async function obterLevantamento(): Promise<Levantamento> {
-  const resultados = await Promise.allSettled(FONTES.map((f) => baixar(f)));
+  const fontesDoTurno = FONTES.filter((f) => f.turno === TSE.turno);
+  const resultados = await Promise.allSettled(fontesDoTurno.map((f) => baixar(f)));
 
   const fontes: StatusFonte[] = [];
   let lidos: PaisProvisorio[] = [];
   const textosConferencia: { nome: string; texto: string }[] = [];
 
-  FONTES.forEach((fonte, i) => {
+  fontesDoTurno.forEach((fonte, i) => {
     const r = resultados[i];
     const base = { id: fonte.id, nome: fonte.nome, url: fonte.url, papel: fonte.papel };
     if (r.status === "rejected") {
@@ -86,7 +88,7 @@ export async function obterLevantamento(): Promise<Levantamento> {
       return;
     }
     if (fonte.papel === "principal") {
-      lidos = lerMateriaPorPais(r.value);
+      lidos = fonte.formato === "cnn" ? lerListaDuelo(r.value) : lerMateriaPorPais(r.value);
       fontes.push({ ...base, ok: lidos.length > 0, paisesLidos: lidos.length, erro: lidos.length ? undefined : "formato não reconhecido" });
     } else {
       textosConferencia.push({ nome: fonte.nome, texto: semAcento(htmlParaTexto(r.value)) });
@@ -100,7 +102,7 @@ export async function obterLevantamento(): Promise<Levantamento> {
   const confirmacoes = (d: PaisProvisorio) =>
     textosConferencia.filter((t) => confirma(t.texto, d)).map((t) => t.nome);
 
-  const snapshots = new Map(PROVISORIO.map((p) => [p.iso, p]));
+  const snapshots = new Map((TSE.turno === "1" ? PROVISORIO : []).map((p) => [p.iso, p]));
   const lidosPorIso = new Map(lidos.map((p) => [p.iso, p]));
 
   const paises: PaisLevantado[] = [...new Set([...snapshots.keys(), ...lidosPorIso.keys()])].map((iso) => {
@@ -127,7 +129,7 @@ export async function obterLevantamento(): Promise<Levantamento> {
         !fechaComRef(dado) &&
           "A soma dos votos listados não fecha com os percentuais publicados pela própria fonte; os valores podem estar incompletos.",
         aviso,
-        OBSERVACOES_PAISES[iso],
+        TSE.turno === "1" ? OBSERVACOES_PAISES[iso] : undefined,
         dado.ressalva,
       ]
         .filter(Boolean)

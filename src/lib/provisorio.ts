@@ -2,6 +2,17 @@ import type { Levantamento, PaisLevantado } from "./fontes";
 import { PAISES, paisPorIso } from "./locais";
 import type { Apuracao, Candidato } from "./tse/normalize";
 
+function semCobertura(partes: PaisLevantado[]): string {
+  const cobertos = new Set(partes.map((p) => p.iso));
+  const continentes = [...new Set(partes.map((p) => paisPorIso(p.iso)?.continente))].join(", ");
+  const faltam = ["US", "PT"].filter((iso) => !cobertos.has(iso)).map((iso) => paisPorIso(iso)?.nome);
+  const europa = partes.some((p) => paisPorIso(p.iso)?.continente === "Europa");
+  const ausentes = [...faltam, ...(europa ? [] : ["Europa"])];
+  return `Cobertura de: ${continentes}.${
+    ausentes.length ? ` Ainda sem ${ausentes.join(", ")}, então estes percentuais não representam o exterior inteiro.` : ""
+  }`;
+}
+
 function somar(partes: PaisLevantado[]) {
   const votos = new Map<string, number>();
   let naoIdentificados = 0;
@@ -40,7 +51,7 @@ export function aplicarProvisorio(base: Apuracao, lev: Levantamento): Apuracao {
   if (base.escopo.tipo === "exterior") {
     avisos.push(
       `Levantamento parcial: ${partes.length} de ${PAISES.length} países. Os demais ainda não tiveram boletins divulgados.`,
-      `Cobertura apenas de: ${[...new Set(partes.map((p) => paisPorIso(p.iso)?.continente))].join(", ")}. Estados Unidos, Portugal e Europa ainda não entraram, então estes percentuais não representam o exterior inteiro.`,
+      semCobertura(partes),
     );
   }
   for (const p of partes) {
